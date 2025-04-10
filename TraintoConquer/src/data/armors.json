@@ -1,0 +1,32 @@
+{
+  "iron": {
+    "level": 1,
+    "special": false,
+    "path": "assets/armors/iron/"
+  },
+  "bronze": {
+    "level": 2,
+    "special": false,
+    "path": "assets/armors/bronze/"
+  },
+  "copper": {
+    "level": 3,
+    "special": false,
+    "path": "assets/armors/copper/"
+  },
+  "steel": {
+    "level": 4,
+    "special": false,
+    "path": "assets/armors/steel/"
+  },
+  "silver": {
+    "level": 5,
+    "special": false,
+    "path": "assets/armors/silver/"
+  },
+  "gold": {
+    "level": 6,
+    "special": false,
+    "path": "assets/armors/gold/"
+  }
+}
