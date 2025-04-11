@@ -4,30 +4,30 @@ let telegramId = null;
 // 🟢 Obtener datos del jugador usando el token JWT
 export async function fetchPlayerData(token) {
   telegramId = await getTelegramID(token); // Esperamos a obtener el telegramId
-  try{
+  try {
 
-  // Asegúrate de obtener el token actualizado
-  const response = await fetch(`${API_URL}/jugador/${telegramId}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
+    // Asegúrate de obtener el token actualizado
+    const response = await fetch(`${API_URL}/jugador/${telegramId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
 
-  if (!response.ok) {
-     // Si la respuesta no es exitosa (404, 401, etc.)
-     if (response.status === 404) {
-      console.warn("⚠️ Jugador no encontrado. Puede haber sido eliminado.");
-      return null;
+    if (!response.ok) {
+      // Si la respuesta no es exitosa (404, 401, etc.)
+      if (response.status === 404) {
+        console.warn("⚠️ Jugador no encontrado. Puede haber sido eliminado.");
+        return null;
+      }
+      throw new Error(`Error: ${response.statusText}`);
     }
-    throw new Error(`Error: ${response.statusText}`);
+    const data = await response.json();
+    return data;
+
+  } catch (error) {
+    console.error("❌ Error en fetchPlayerData:", error);
+    throw error;
   }
-  const data = await response.json();
-  return data;
-  
-} catch (error) {
-  console.error("❌ Error en fetchPlayerData:", error);
-  throw error;
-}
 }
 
 // 🟢 Actualizar datos del jugador usando el token JWT
@@ -45,7 +45,7 @@ export async function updatePlayerData(token, newData) {
 
     if (!response.ok) throw new Error("Error actualizando los datos");
 
-    console.log("✅ Datos actualizados:", await response.json());
+
   } catch (error) {
     console.error("❌ Error:", error);
   }
@@ -64,7 +64,7 @@ export async function getTelegramID(token) {
     if (!response.ok) throw new Error(data.error);
 
     telegramId = data.telegramId; // Actualizamos telegramId con el valor recibido
-    console.log(`📌 Jugador validado con Telegram ID: ${telegramId}`);
+
     return telegramId; // Devolvemos el telegramId para usarlo en las otras funciones
   } catch (error) {
     console.error("❌ Error al obtener el Telegram ID:", error);

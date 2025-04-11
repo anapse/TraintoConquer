@@ -31,7 +31,7 @@ mongoose
 // Middleware
 app.use(express.json());
 app.use(cors());
-
+const session = require('telegraf').session; // Middleware de sesión
 // Rutas de la API
 app.post("/jugador", async (req, res) => {
     try {
@@ -140,8 +140,9 @@ app.listen(PORT, "0.0.0.0", async () => {
 });
 
 
-
+bot.use(session()); 
 bot.command('start', async (ctx) => {
+    console.log("Comando /start recibido:", ctx.from);
     try {
         const telegramId = ctx.from.id;
         const firstName = ctx.from.first_name || "";
@@ -151,117 +152,78 @@ bot.command('start', async (ctx) => {
 
         console.log(`✅ Comando /start recibido de ${username} (ID: ${telegramId})`);
 
+        // Inicializar sesión si no existe
+        if (!ctx.session) ctx.session = {};
+        
         // Buscar si ya existe el jugador en la base de datos
         let jugador = await Jugador.findOne({ telegram_id: telegramId });
 
+        let token;
+        let isNewPlayer = false;
+        let nombrePlayer = firstName;
+
         if (!jugador) {
-            // Si no se encuentra el jugador, se crea un nuevo jugador con el nombre del usuario
+            // Si no se encuentra el jugador, se crea un nuevo jugador
             console.log("Jugador no encontrado, creando uno nuevo...");
             
-            const nombrePlayer = `${firstName} ${lastName}`;  // Se combina el nombre y apellido de Telegram
+            // Manejar nombre completo
+            nombrePlayer = [firstName, lastName].filter(Boolean).join(" ") || username;
             
-            // Crear nuevo jugador con el nombre tomado de Telegram
-            const nuevoJugador = new Jugador({
+            // Crear nuevo jugador
+            jugador = new Jugador({
                 telegram_id: telegramId,
-                player_name: nombrePlayer,  // Aquí guardamos el nombre completo del jugador
+                player_name: nombrePlayer,
                 first_name: firstName,
                 last_name: lastName,
                 exp: 0,
                 level: 1,
-                coins: 100,  // Inicializamos con 100 monedas
+                coins: 100,
             });
 
-            // Guardar el nuevo jugador en la base de datos
-            try {
-                await nuevoJugador.save();
-                console.log("Jugador guardado:", nuevoJugador);
-            } catch (err) {
-                console.error("Error al guardar el jugador:", err);
-                return ctx.reply("❌ Ocurrió un error al registrar al jugador. Inténtalo de nuevo más tarde.");
-            }
+            await jugador.save();
+            console.log("Jugador guardado:", jugador);
+            isNewPlayer = true;
+        }
 
-            // Crear el token para el nuevo jugador
-            const token = jwt.sign({ telegramId }, SECRET_KEY, { expiresIn: "3h" });
-
+        // Generar token (nuevo para jugadores nuevos o si no hay uno válido)
+        if (isNewPlayer || !ctx.session.token) {
+            token = jwt.sign({ telegramId }, SECRET_KEY, { expiresIn: "3h" });
+            ctx.session.token = token;
             console.log("Token generado:", token);
-
-            // Enviar la foto y el botón de "Jugar ahora"
-            return ctx.replyWithPhoto('https://traintoconquer.servegame.com/img/launch.png', {
-                caption: `¡Bienvenido, ${nombrePlayer}! 🎮 Has sido registrado como nuevo jugador. ¿Listo para jugar?`,
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            {
-                                text: "🎮 Jugar ahora",
-                                web_app: {
-                                    url: `https://traintoconquer.servegame.com?token=${token}`,
-                                }
-                            }
-                        ]
-                    ]
-                }
-            });
-
         } else {
-            // Si el jugador ya existe, verificamos el token actual
-            console.log("Jugador encontrado, verificando token...");
-
-            // Verificar si el token de la sesión está expirado
-            const token = ctx.session.token;  // El token almacenado en la sesión del bot
-
+            // Verificar si el token existente es válido
             try {
-                if (token) {
-                    // Intentamos decodificar el token
-                    const decoded = jwt.verify(token, SECRET_KEY);  // Verificar si el token es válido
-
-                    // Si el token es válido, simplemente continuamos con el token existente
-                    console.log("Token existente válido");
-
-                    return ctx.replyWithPhoto('https://traintoconquer.servegame.com/img/launch.png', {
-                        caption: `¡Bienvenido de nuevo, ${firstName}! 🚀\nHas recibido 100 monedas 🪙 como regalo de inicio.`,
-                        reply_markup: {
-                            inline_keyboard: [
-                                [
-                                    {
-                                        text: "🎮 Jugar ahora",
-                                        web_app: {
-                                            url: `https://traintoconquer.servegame.com?token=${token}`,
-                                        }
-                                    }
-                                ]
-                            ]
-                        }
-                    });
-                }
+                jwt.verify(ctx.session.token, SECRET_KEY);
+                token = ctx.session.token;
+                console.log("Token existente válido");
             } catch (error) {
-                // Si el token está expirado o inválido, generamos uno nuevo
                 console.log("Token expirado o inválido, generando uno nuevo...");
-
-                // Generar un nuevo token
-                const newToken = jwt.sign({ telegramId }, SECRET_KEY, { expiresIn: "3h" });
-
-                console.log("Nuevo token generado:", newToken);
-
-                // Actualizar el token en la sesión (si lo estás almacenando en la sesión)
-                ctx.session.token = newToken;
-
-                return ctx.replyWithPhoto('https://traintoconquer.servegame.com/img/launch.png', {
-                    caption: `¡Bienvenido de nuevo, ${firstName}! 🚀\nHas recibido 100 monedas 🪙 como regalo de inicio.`,
-                    reply_markup: {
-                        inline_keyboard: [
-                            [
-                                {
-                                    text: "🎮 Jugar ahora",
-                                    web_app: {
-                                        url: `https://traintoconquer.servegame.com?token=${newToken}`,
-                                    }
-                                }
-                            ]
-                        ]
-                    }
-                });
+                token = jwt.sign({ telegramId }, SECRET_KEY, { expiresIn: "3h" });
+                ctx.session.token = token;
             }
         }
+
+        // Mensaje de bienvenida personalizado
+        const welcomeMessage = isNewPlayer 
+            ? `¡Bienvenido, ${nombrePlayer}! 🎮 Has sido registrado como nuevo jugador. ¿Listo para jugar?`
+            : `¡Bienvenido de nuevo, ${nombrePlayer}! 🚀`;
+
+        return ctx.replyWithPhoto('https://traintoconquer.servegame.com/img/launch.png', {
+            caption: welcomeMessage,
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: "🎮 Jugar ahora",
+                            web_app: {
+                                url: `https://traintoconquer.servegame.com?token=${token}`,
+                            }
+                        }
+                    ]
+                ]
+            }
+        });
+
     } catch (error) {
         console.error("❌ Error en el comando /start:", error);
         return ctx.reply("❌ Ocurrió un error al iniciar. Inténtalo de nuevo más tarde.");

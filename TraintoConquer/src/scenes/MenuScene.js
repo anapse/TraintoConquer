@@ -2,6 +2,7 @@ import CoinDisplay from "../componets/CoinDisplay";
 import ExpBar from "../componets/ExpBar";
 import ExpFloatingText from "../componets/ExpFloatingText";
 import { fetchPlayerData, updatePlayerData } from "../apiService.js";
+import { EnergyBar } from "../componets/EnergyBar.js";
 
 
 export default class MenuScene extends Phaser.Scene {
@@ -16,7 +17,8 @@ export default class MenuScene extends Phaser.Scene {
     this.load.image("bg_inventario", "assets/backgrounds/bg_inventario.png");
     this.load.image("particle_star", "assets/particle_star.png");
     this.load.image("levelUpBadge", "assets/lvlup.png");
-
+    this.load.image('expicon', 'assets/exp_icon.png');
+    this.load.image('lightning', 'assets/rayito.png');  // Cargar el ícono del rayo
     this.load.spritesheet("slash", "assets/anis/slash_oversize.png", {
       frameWidth: 192,
       frameHeight: 192,
@@ -43,14 +45,22 @@ export default class MenuScene extends Phaser.Scene {
     this.bg = this.add
       .image(this.scale.width / 2, this.scale.height / 2, "background")
       .setOrigin(0.5);
-      await this.validateTokenAndLoadPlayerData();
-    
+    await this.validateTokenAndLoadPlayerData();
+
 
     // Ajustar el fondo a la pantalla sin deformarlo
     const scaleX = this.scale.width / this.bg.width;
     const scaleY = this.scale.height / this.bg.height;
     const scale = Math.max(scaleX, scaleY);
     this.bg.setScale(scale);
+
+    this.energyBar = new EnergyBar(this, this.scale.width / 2 - 90, 550, 180, 20);
+
+    function update(time, delta) {
+      // Actualizar la barra de energía
+      energyBar.update(delta);
+    }
+
 
     // Crear el botón gráfico
     this.buttonGraphics = this.add.graphics();
@@ -125,18 +135,16 @@ export default class MenuScene extends Phaser.Scene {
     this.currentExp += expGained;
     this.addExp(expGained);
     this.updateCoins(expGained);
-  
+
     if (this.currentExp >= this.expBar.maxExp) {
       this.currentLevel++;
       this.currentExp -= this.expBar.maxExp; // Resta lo que sobró en vez de resetear a 0
       this.events.emit("playerLevelUp", this.currentLevel);
       this.playLevelUpEffect(this.currentLevel);
     }
-    console.log(
-      this.currentExp + " es exp y " + this.currentLevel + " es el lvl"
-    );
+ 
     this.expBar.updateExp(this.currentExp, this.currentLevel);
-  
+
     // 🔥 Guardar en MongoDB una sola vez después de todos los cálculos
     const token = this.getToken(); // Obtener el token actualizado
     updatePlayerData(token, {
@@ -145,38 +153,38 @@ export default class MenuScene extends Phaser.Scene {
       coins: this.coins,
     });
   }
-  
+
   addExp(amount) {
     this.currentExp += amount;
     new ExpFloatingText(this, this.player.x, this.player.y - 20, amount);
   }
-  
+
   updateCoins(amount) {
     this.coins += amount;
     this.coinDisplay.updateAmount(this.coins); // 🔹 Solo actualiza la UI
-    
+
     const token = this.getToken(); // Obtener el token actualizado
     updatePlayerData(token, {
       coins: this.coins,
     }); // 🔹 Aquí se actualiza la API
-    
-    console.log("esto es los coin q van " + this.coins);
+
+
   }
-  
+
   async validateTokenAndLoadPlayerData() {
-    console.log("Current URL Params:", window.location.search);
-  
+
+
     // 1. Intenta obtenerlo desde la URL
     const urlParams = new URLSearchParams(window.location.search);
     this.setToken(urlParams.get("token"));
-    console.log("Token desde URL:", this.getToken());
-    let token = this.getToken();
   
+    let token = this.getToken();
+
     // 2. Si no hay token, intenta obtenerlo desde initData
     if (!token && window.Telegram?.WebApp?.initData) {
       const initData = new URLSearchParams(window.Telegram.WebApp.initData);
       const telegramId = JSON.parse(initData.get("user") || "{}").id;
-  
+
       if (telegramId) {
         const res = await fetch("/api/validate-id", {
           method: "POST",
@@ -187,16 +195,16 @@ export default class MenuScene extends Phaser.Scene {
         this.setToken(data.token);
       }
     }
-  
+
     if (!token) {
       console.warn("⚠️ No se recibió un Token.");
       // Si no hay token, lanzamos la escena de error
       this.scene.start("ErrorScene");
       return;
     }
+
   
-    console.log(`🔑 Token recibido: ${token}`);
-  
+
     try {
       const playerData = await fetchPlayerData(this.token);
       if (playerData) {
@@ -204,20 +212,20 @@ export default class MenuScene extends Phaser.Scene {
         this.currentExp = playerData.exp;
         this.currentLevel = playerData.level;
         this.coins = playerData.coins;
-  
+
         this.scene.launch("UIManager", { level: playerData.level });
         this.coinDisplay = new CoinDisplay(this, 50, this.coins);
         this.expBar = new ExpBar(
           this,
           this.cameras.main.centerX,
-          this.cameras.main.centerY + 220,
+          this.cameras.main.centerY + 195,
           playerData.exp,
           playerData.level
         );
-      }else{
+      } else {
         console.log("⛔ No se encontró el jugador, redirigiendo a escena de error...");
-  this.scene.start("ErrorScene");
-  return;
+        this.scene.start("ErrorScene");
+        return;
       }
     } catch (error) {
       console.error("❌ Error validando el token:", error);
@@ -225,10 +233,10 @@ export default class MenuScene extends Phaser.Scene {
       this.scene.start("ErrorScene");
     }
   }
-  
+
 
   // Función para obtener el token
- getToken() {
+  getToken() {
     return this.token;
   }
 
@@ -238,16 +246,30 @@ export default class MenuScene extends Phaser.Scene {
   }
 
 
-  
-  
+
+
   onButtonClick() {
+    if (this.energyBar.getEnergy() <= 0) return; // Opcional: evita atacar sin energía
+    if (!this.energyBar) {
+      console.error('EnergyBar no está inicializado');
+      return;
+    }
+
+    // Acceder al método getEnergy de EnergyBar
+
+    // Resto del código...
     this.player.stop();
+    // Comenzar a gastar energía
+    this.energyBar.startDrain();
+
     this.player.play(this.attackAnimations[this.attackIndex]);
     this.gainExp();
     this.drawButton(0x002200, 0.9);
 
     this.player.once("animationcomplete", () => {
       this.drawButton(0xffffff, 1);
+      // Detener gasto de energía
+      this.energyBar.stopDrain();
       this.attackIndex = (this.attackIndex + 1) % this.attackAnimations.length;
       this.player.play("walk");
     });

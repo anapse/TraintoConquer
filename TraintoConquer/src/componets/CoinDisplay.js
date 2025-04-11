@@ -5,12 +5,7 @@ export default class CoinDisplay {
 
     // Ancho de la pantalla para centrar
     const centerX = scene.scale.width / 2 - 10;
-    console.log(
-      "✅ Creando barra con cantidad:",
-      this.amount,
-      "- Tipo:",
-      typeof this.amount
-    );
+  
 
     // Crear el texto
     this.text = scene.add
