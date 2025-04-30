@@ -1,0 +1,11 @@
+GET https://traintoconquer.servegame.com/api/jugadores
+
+
+######
+
+POST https://traintoconquer.servegame.com/api/action
+Content-Type: application/json
+
+{
+  "telegramId": 7979935754
+}

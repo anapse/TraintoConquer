@@ -1,48 +1,40 @@
 import { createHexBackground } from "./createHexBackground";
+import energy_required from "../data/energy_lvl.json";
 
 export class EnergyBar {
-    constructor(scene, x, y, width, height, maxEnergy = 100, regenTime = 300000, iconKey = 'lightning') {
+    constructor(scene, level = 1, currentEnergy = 1000, iconKey = 'lightning') {
         this.scene = scene;
-        this.x = x;
-        this.y = y;
-        this.width = width;
-        this.height = height;
-        this.maxEnergy = maxEnergy;
-        this.energy = maxEnergy;
-        this.energyDecreaseRate = 0.1;
-        this.regenTime = regenTime;
+        this.x = this.scene.scale.width / 2 - 90;
+        this.y = 550;
+        this.width = 180;
+        this.height = 20;
+        this.energy = currentEnergy;
         this.iconKey = iconKey;
+        this.level = level;
 
-        // Crear elementos gráficos
+        this.loadEnergyData(level).then(() => this.updateBar());
         this.createBar();
 
-        // Configurar regeneración automática
-        this.setupRegeneration();
     }
 
     createBar() {
-        // Fondo de la barra (gris)
+        // Fondo gris
         this.bgBar = this.scene.add.graphics();
         this.bgBar.fillStyle(0x333333, 1);
         this.bgBar.fillRoundedRect(this.x, this.y, this.width, this.height, 5);
 
-        // Barra de energía principal (roja)
+        // Barra de energía
         this.energyBar = this.scene.add.graphics();
 
-        // Borde de la barra (blanco)
+        // Borde blanco
         this.borderBar = this.scene.add.graphics();
         this.borderBar.lineStyle(2, 0xffffff, 1);
         this.borderBar.strokeRoundedRect(this.x, this.y, this.width, this.height, 5);
 
+        // Ícono con fondo hexagonal
         const iconSprite = this.scene.add.sprite(0, 0, this.iconKey);
         iconSprite.setDisplaySize(25, 25);
-
-        // Crear contenedor con fondo hexagonal + ícono encima
         this.iconContainer = createHexBackground(iconSprite, this.scene, this.x - 15, this.y + this.height / 2);
-
-
-
-
         // Texto de energía
         this.energyText = this.scene.add.text(
             this.x + this.width - 120,
@@ -56,115 +48,38 @@ export class EnergyBar {
             }
         );
         this.energyText.setOrigin(0, 0.5);
-
         this.updateBar();
     }
-
-    setupRegeneration() {
-        this.scene.time.addEvent({
-            delay: this.regenTime,
-            callback: () => {
-                this.energy = this.maxEnergy;
-                this.updateBar();
-                this.scene.tweens.add({
-                    targets: [this.icon],
-                    scale: { from: 1.2, to: 1 },
-                    duration: 500,
-                    ease: 'Bounce.easeOut'
-                });
-            },
-            callbackScope: this,
-            loop: true
+    async loadEnergyData(level) {
+        return new Promise((resolve) => {
+            if (energy_required?.energy_required?.[level] !== undefined) {
+                this.maxEnergy = energy_required.energy_required[level];
+            } else {
+                console.warn(
+                    `⚠️ Nivel ${level} no encontrado en energy_lvl.json, usando 1000 por defecto.`
+                );
+                this.maxEnergy = 1000;
+            }
+            resolve();
         });
     }
-
-    update(delta) {
-        if (this.isDraining && this.energy > 0) {
-            this.energy -= this.energyDecreaseRate * (delta / 1000);
-            this.energy = Math.max(0, this.energy);
-            this.updateBar();
-        }
-    }
-
     updateBar() {
-        // Calcular ancho actual basado en energía
-        const currentWidth = (this.energy / this.maxEnergy) * this.width;
-
-        // Actualizar barra de energía
-        this.energyBar.clear();
-        this.energyBar.fillStyle(this.getEnergyColor(), 1);
-        this.energyBar.fillRoundedRect(
-            this.x,
-            this.y,
-            currentWidth,
-            this.height,
-            5
-        );
-
-        // Actualizar texto
-        this.energyText.setText(`${Math.floor(this.energy)}/${this.maxEnergy}`);
-
-        // Efecto visual cuando energía baja
-        if (this.energy < this.maxEnergy * 0.3) {
-            this.energyBar.fillStyle(0xff0000, 0.7 + 0.3 * Math.sin(this.scene.time.now * 0.005));
-            this.energyBar.fillRoundedRect(
-                this.x,
-                this.y,
-                currentWidth,
-                this.height,
-                5
-            );
-        }
-    }
-
-    getEnergyColor() {
-        // Cambia el color según el nivel de energía
         const percent = this.energy / this.maxEnergy;
-        if (percent > 0.7) return 0x503B8A; // Verde
-        if (percent > 0.4) return 0xffff00; // Amarillo
-        return 0xff0000; // Rojo
+        const currentWidth = percent * this.width;
+
+        let color = 0x503B8A; // verde
+        if (percent < 0.3) color = 0xff0000; // rojo
+        else if (percent < 0.7) color = 0xffff00; // amarillo
+
+        this.energyBar.clear();
+        this.energyBar.fillStyle(color, 1);
+        this.energyBar.fillRoundedRect(this.x, this.y, currentWidth, this.height, 5);
     }
 
-    regenerateEnergy() {
-        this.energy = this.maxEnergy;
+    async setEnergy(currentEnergy) {
+        console.log("setEnergy", currentEnergy);
+        this.energy = Phaser.Math.Clamp(currentEnergy, 0, this.maxEnergy);
+        this.energyText.setText(`${Math.floor(this.energy)}/${this.maxEnergy}`);
         this.updateBar();
-
-        // Efecto visual al regenerar
-        this.scene.tweens.add({
-            targets: [this.energyBar],
-            alpha: { from: 0.5, to: 1 },
-            duration: 1000,
-            ease: 'Power1'
-        });
-    }
-
-    getEnergy() {
-        return this.energy;
-    }
-
-    setEnergy(value) {
-        this.energy = Phaser.Math.Clamp(value, 0, this.maxEnergy);
-        this.updateBar();
-    }
-
-    addEnergy(amount) {
-        this.setEnergy(this.energy + amount);
-
-        // Efecto visual al añadir energía
-        this.scene.tweens.add({
-            targets: [this.icon],
-            scale: { from: 1.3, to: 1 },
-            duration: 300,
-            ease: 'Back.easeOut'
-        });
-    }
-
-
-    startDrain() {
-        this.isDraining = true;
-    }
-
-    stopDrain() {
-        this.isDraining = false;
     }
 }

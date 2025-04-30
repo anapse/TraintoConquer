@@ -1,8 +1,9 @@
+import Phaser from "phaser";
 import exp_required from "../data/exp_lvl.json";
 import { createHexBackground } from "./createHexBackground";
 
 export default class ExpBar extends Phaser.GameObjects.Container {
-  constructor(scene, x, y, exp = 0, level = 1,iconKey = 'expicon') {
+  constructor(scene, x, y, exp = 0, level = 1, iconKey = 'expicon') {
     super(scene, x, y);
     this.scene = scene;
     this.level = level;
@@ -11,8 +12,8 @@ export default class ExpBar extends Phaser.GameObjects.Container {
     this.currentExp = exp;
     this.maxExp = 1000; // Se actualizará con loadExpData()
     this.iconKey = iconKey;
-    
-  // Icono de energía
+
+    // Icono de energía
 
     // 🟢 Crear UI (borde, barra, texto)
     this.border = this.scene.add.graphics();
@@ -21,7 +22,7 @@ export default class ExpBar extends Phaser.GameObjects.Container {
       -this.width / 2,
       -this.height / 2,
       this.width,
-      this.height,5
+      this.height, 5
     );
     this.add(this.border);
 
@@ -41,7 +42,7 @@ export default class ExpBar extends Phaser.GameObjects.Container {
     this.add(this.expText);
     const iconSprite = this.scene.add.sprite(0, 0, this.iconKey);
     iconSprite.setDisplaySize(25, 25);
-    
+
     // Crear contenedor con fondo hexagonal + ícono encima
     this.iconContainer = createHexBackground(iconSprite, this.scene, -this.width / 2 - 15, 0);
     this.add(this.iconContainer);   // 🔥 Añadir al contenedor!
@@ -56,7 +57,7 @@ export default class ExpBar extends Phaser.GameObjects.Container {
   // Cargar datos de experiencia desde JSON
   async loadExpData(level) {
     return new Promise((resolve) => {
-  
+
 
       if (exp_required?.exp_required?.[level] !== undefined) {
         this.maxExp = exp_required.exp_required[level];
@@ -67,14 +68,14 @@ export default class ExpBar extends Phaser.GameObjects.Container {
         this.maxExp = 1000;
       }
 
-     
+
       resolve();
     });
   }
 
   // Actualizar la experiencia y la barra
   async updateExp(exp, level) {
-   
+
 
     this.currentExp = exp;
     this.level = level; // Actualiza el nivel actual
@@ -91,13 +92,13 @@ export default class ExpBar extends Phaser.GameObjects.Container {
     let fillWidth = (this.currentExp / this.maxExp) * this.width;
     fillWidth = Math.max(0, Math.min(this.width, fillWidth)); // Evita valores fuera de rango
 
-   
+
 
     this.expBar.fillRoundedRect(
       -this.width / 2,
       -this.height / 2,
       fillWidth,
-      this.height,5
+      this.height, 5
     );
     this.expText.setText(`${this.currentExp} / ${this.maxExp}`);
   }

@@ -1,26 +1,28 @@
 const API_URL = "https://traintoconquer.servegame.com/api"; // URL de la API
-let telegramId = null;
 
 // 🟢 Obtener datos del jugador usando el token JWT
 export async function fetchPlayerData(token) {
-  telegramId = await getTelegramID(token); // Esperamos a obtener el telegramId
-  try {
+  const telegramId = await getTelegramID(token); // Esperamos a obtener el telegramId
+  if (!telegramId) {
+    console.error("❌ Error: No se pudo obtener el Telegram ID.");
+    return null;
+  }
 
-    // Asegúrate de obtener el token actualizado
-    const response = await fetch(`${API_URL}/jugador/${telegramId}`, {
+  try {
+    const response = await fetch(`/api/jugador/${telegramId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
 
     if (!response.ok) {
-      // Si la respuesta no es exitosa (404, 401, etc.)
       if (response.status === 404) {
         console.warn("⚠️ Jugador no encontrado. Puede haber sido eliminado.");
         return null;
       }
       throw new Error(`Error: ${response.statusText}`);
     }
+
     const data = await response.json();
     return data;
 
@@ -32,22 +34,33 @@ export async function fetchPlayerData(token) {
 
 // 🟢 Actualizar datos del jugador usando el token JWT
 export async function updatePlayerData(token, newData) {
-  telegramId = await getTelegramID(token); // Esperamos a obtener el telegramId
+  const telegramId = await getTelegramID(token); // Esperamos a obtener el telegramId
+  if (!telegramId) {
+    console.error("❌ Error: No se pudo obtener el Telegram ID.");
+    return;
+  }
+
   try {
-    const response = await fetch(`${API_URL}/jugador/${telegramId}`, {
+    const response = await fetch(`/api/jugador/${telegramId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`  // Enviar el token en el encabezado Authorization
+        "Authorization": `Bearer ${token}`,
       },
-      body: JSON.stringify(newData), // Los datos que quieres actualizar
+      body: JSON.stringify(newData),
     });
 
-    if (!response.ok) throw new Error("Error actualizando los datos");
+    if (!response.ok) {
+      throw new Error(`Error actualizando los datos: ${response.statusText}`);
+    }
 
+    const updatedData = await response.json();
+
+    return updatedData;
 
   } catch (error) {
-    console.error("❌ Error:", error);
+    console.error("❌ Error en updatePlayerData:", error);
+    throw error;
   }
 }
 
@@ -57,16 +70,69 @@ export async function getTelegramID(token) {
     const response = await fetch("/api/validate-token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: token }), // Usamos token directamente
+      body: JSON.stringify({ token }), // Usamos token directamente
     });
 
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Error: ${errorData.error || 'Error al obtener Telegram ID'}`);
+    }
+
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error);
+    return data.telegramId;
 
-    telegramId = data.telegramId; // Actualizamos telegramId con el valor recibido
-
-    return telegramId; // Devolvemos el telegramId para usarlo en las otras funciones
   } catch (error) {
     console.error("❌ Error al obtener el Telegram ID:", error);
+    return null; // Devuelve null si ocurre un error
+  }
+}
+
+// 🟢 Refrescar el token de acceso usando el refresh token
+export async function refreshAccessToken(refreshToken) {
+  try {
+    const response = await fetch("/api/refresh-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error al refrescar el token: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data; // Devuelve el nuevo token o datos relacionados
+
+  } catch (error) {
+    console.error("❌ Error al refrescar el token:", error);
+    throw error; // Lanza el error para manejarlo externamente
+  }
+}
+// apiService.js
+export async function handlePlayerAction(telegramId) {
+  const url = "/api/action"; // Cambia la URL a tu API
+  const requestBody = {
+    telegramId
+  };
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    // Verificar si la respuesta es exitosa
+    if (!response.ok) {
+      throw new Error('Error al realizar la acción');
+    }
+
+    const data = await response.json();
+
+    return data;
+
+  } catch (error) {
+    console.error('Error:', error);
   }
 }
