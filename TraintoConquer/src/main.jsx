@@ -6,6 +6,7 @@ import { UIManager } from "./componets/UIManager.js";
 import { ErrorScene } from "./scenes/ErrorScene.js";
 import Dashboard from './Dashboard.jsx';
 import Phaser from "phaser";
+import PreVentaScene from "./scenes/PreVentaScene.js";
 
 const GameComponent = () => {
   const gameContainer = useRef(null);
@@ -19,10 +20,11 @@ const GameComponent = () => {
       height: 640,
       parent: gameContainer.current,
       scale: {
-        mode: Phaser.Scale.FIT,
+        mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
+        aspectRatio: 480 / 640,  // Relación de aspecto fija
       },
-      scene: [MenuScene, ErrorScene, UIManager],
+      scene: [MenuScene, ErrorScene,PreVentaScene, UIManager],
     };
 
     // Inicializar Phaser solo cuando el componente se monta

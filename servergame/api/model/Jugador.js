@@ -16,7 +16,8 @@ const jugadorSchema = new mongoose.Schema({
   level: { type: Number, default: 1 },
   coins: { type: Number, default: 100 },
   energy: { type: Number, default: 100 }, // Agregado
-  lastEnergySpentAt: { type: Date, default: null } // Agregado
+  lastEnergySpentAt: { type: Date, default: null }, // Agregado
+  isTester: { type: Boolean, default: false },  // Si no es tester, se pone en false
 });
 
 const Jugador = mongoose.model("jugador", jugadorSchema, "jugadores");

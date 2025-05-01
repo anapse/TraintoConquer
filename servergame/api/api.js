@@ -91,35 +91,45 @@ app.post('/api/validate-token', (req, res) => {
   }
 });
 
-app.post('/api/refresh-token', (req, res) => {
-  const { token } = req.body;
+app.post('/api/refresh-token', async (req, res) => {
+  const { refreshToken } = req.body;
 
-  if (!token) {
-    return res.status(400).json({ error: 'Token no proporcionado' });
+  if (!refreshToken) {
+    return res.status(400).json({ error: 'Refresh token requerido' });
   }
 
   try {
-    // Intentamos verificar el token
-    const decoded = jwt.verify(token, SECRET_KEY);
+    // Verificar el refresh token
+    const decoded = jwt.verify(refreshToken, SECRET_KEY);
 
-    // Si el token es válido, devolvemos el mismo token
-    return res.json({ newToken: token, refreshed: false });
-  } catch (error) {
-    if (error.name === "TokenExpiredError") {
-      // Si el token está expirado, decodificamos el Telegram ID
-      const decoded = jwt.decode(token);
+    // Verificar que el token exista en la base de datos
+    const jugador = await Jugador.findOne({
+      telegram_id: decoded.telegramId,
+      refreshToken: refreshToken
+    });
 
-      if (!decoded || !decoded.telegramId) {
-        return res.status(401).json({ error: 'Token inválido' });
-      }
-
-      // Si el token ha expirado, creamos uno nuevo
-      const newToken = jwt.sign({ telegramId: decoded.telegramId }, SECRET_KEY, { expiresIn: '3h' });
-      return res.json({ newToken, refreshed: true });
+    if (!jugador) {
+      return res.status(401).json({ error: 'Refresh token inválido' });
     }
 
-    // En caso de que el token sea inválido por otro motivo
-    return res.status(401).json({ error: 'Token inválido' });
+    // Generar NUEVO token de acceso (3 horas otra vez)
+    const newAccessToken = jwt.sign(
+      { telegramId: decoded.telegramId },
+      SECRET_KEY,
+      { expiresIn: '3h' }
+    );
+
+    res.json({
+      accessToken: newAccessToken,
+      // Opcional: puedes devolver también un nuevo refresh token si quieres
+      // refreshToken: newRefreshToken
+    });
+
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Refresh token expirado' });
+    }
+    res.status(401).json({ error: 'Token inválido' });
   }
 });
 

@@ -5,68 +5,92 @@ export class UIManager extends Phaser.Scene {
   constructor() {
     super({ key: "UIManager" });
   }
+
   init(data) {
-    this.level = data.level; // 🔹 Recibimos el nivel desde `MenuScene`
+    this.level = data.level; // Recibimos el nivel desde `MenuScene`
   }
+
   preload() {
-    this.load.image("icon_inventory", "assets/inventario.png"); // 👜 Maletín
-    this.load.image("icon_stats", "assets/shield.png"); // 💪 Escudo/Brazo fuerte
-    this.load.image("icon_lvl", "assets/caracter.png"); // 👤 Carita de jugador
+    this.load.image("icon_inventory", "assets/inventario.png");
+    this.load.image("icon_stats", "assets/shield.png");
+    this.load.image("icon_lvl", "assets/caracter.png");
   }
 
   create() {
-    const centerX = this.cameras.main.width / 2;
+    // Crear un contenedor principal para la UI, que abarque el ancho de la pantalla
+    const container = this.add.container(this.cameras.main.width / 2, 65);
 
-    this.inventoryModal = new InventoryModal(
-      this,
-      this.scale.width / 2,
-      this.scale.height / 2 + 30
-    );
-    this.inventoryModal.setVisible(false); // Oculto al inicio
-    this.add.existing(this.inventoryModal);
+    // Toma el tamaño de la pantalla
+    const fontSize = Math.floor(this.scale.width * 0.035); // Escalar el texto al 4% del ancho de la pantalla
+    const iconScale = 0.24; // Escalar los iconos (puedes ajustarlo)
 
-    // 🔥 Escuchar el evento cuando el jugador sube de nivel
-    this.scene.get("MenuScene").events.on("playerLevelUp", (newLevel) => {
-      this.updateLevel(newLevel);
-    });
+    // El fondo será más pequeño en comparación con el contenedor principal
+    const bgWidth = this.cameras.main.width * 0.95; // El fondo ocupará un 95% del ancho de la pantalla
+    const bgHeight = 95; // Altura fija para el fondo
 
+    // Fondo (ajustado dentro del contenedor)
     let bg = this.add.graphics();
-    bg.fillStyle(0x000000, 0.3); // Color negro con transparencia
-    bg.fillRoundedRect(5, -10, centerX * 2 - 10, 105, 10); // (x, y, width, height, radio)
+    bg.fillStyle(0x000000, 0.3); // Fondo translúcido
+    bg.fillRoundedRect(-bgWidth / 2, -bgHeight / 2, bgWidth, bgHeight, 10); // Fondo más pequeño que el contenedor
+    container.add(bg); // Añadir al contenedor
 
-    // 📦 Inventario (izquierda)
-    let inventory = this.add
-      .image(centerX - 180, 40, "icon_inventory")
-      .setScale(0.25);
+    // Contenedor de los iconos y textos dentro del fondo
+    const iconsContainer = this.add.container(0, 0); // Contenedor de los iconos y texto
+    container.add(iconsContainer);
+
+    // Modal de inventario
+    this.inventoryModal = new InventoryModal(this, 0, this.cameras.main.height / 2 - 40).setScale(0.8); // Crear la instancia de InventoryModal
+    this.inventoryModal.setVisible(false); // Oculto al inicio
+    container.add(this.inventoryModal); // Añadir al contenedor
+
+    // Inventario (izquierda)
+    const inventoryContainer = this.add.container(-bgWidth / 2.7, -10); // Contenedor para el icono y el texto
+    let inventory = this.add.image(0, 0, "icon_inventory").setScale(iconScale);
     let textInventory = this.add
-      .text(inventory.x, inventory.y + 45, "Inventario", {
-        fontSize: "16px",
+      .text(0, 45, "Inventario", {
+        fontSize: fontSize + "px",
         fontStyle: "bold",
         color: "#FFFFFF",
       })
       .setOrigin(0.5);
 
-    // 💪 Stats (centro)
-    let stats = this.add.image(centerX, 40, "icon_stats").setScale(0.25);
+    inventoryContainer.add(inventory);
+    inventoryContainer.add(textInventory);
+    iconsContainer.add(inventoryContainer);
+
+    // Stats (centro)
+    const statsContainer = this.add.container(0, -10); // Contenedor para el icono y el texto
+    let stats = this.add.image(0, 0, "icon_stats").setScale(iconScale);
     let textStats = this.add
-      .text(stats.x, stats.y + 45, "Stats", {
-        fontSize: "16px",
+      .text(0, 45, "Stats", {
+        fontSize: fontSize + "px",
         fontStyle: "bold",
         color: "#FFFFFF",
       })
       .setOrigin(0.5);
 
-    // 👤 Nivel (derecha)
-    let lvl = this.add.image(centerX + 180, 40, "icon_lvl").setScale(0.25);
+    statsContainer.add(stats);
+    statsContainer.add(textStats);
+    iconsContainer.add(statsContainer);
+
+    // Nivel (derecha)
+    const lvlContainer = this.add.container(bgWidth / 2.7, -10); // Contenedor para el icono y el texto
+    let lvl = this.add.image(0, 0, "icon_lvl").setScale(iconScale);
     this.levelText = this.add
-      .text(lvl.x - 10, lvl.y + 45, "Lv: " + this.level, {
-        fontSize: "16px",
+      .text(0, 45, "Lv: " + this.level, {
+        fontSize: fontSize + "px",
         fontStyle: "bold",
         color: "#FFFFFF",
       })
       .setOrigin(0.5);
+
+    lvlContainer.add(lvl);
+    lvlContainer.add(this.levelText);
+    iconsContainer.add(lvlContainer);
+
     this.armorData = armorData;
     this.updateInventoryByLevel(this.level);
+
     // Eventos interactivos
     inventory.setInteractive();
     stats.setInteractive();
@@ -78,9 +102,10 @@ export class UIManager extends Phaser.Scene {
     stats.on("pointerdown", () => console.log("Stats abiertos"));
     lvl.on("pointerdown", () => console.log("LVL abierto"));
   }
+
   updateLevel(newLevel) {
-    this.level = newLevel; // Actualiza el nivel
-    this.levelText.setText("Lvl: " + this.level); // Refleja el cambio en UI
+    this.level = newLevel;
+    this.levelText.setText("Lv: " + this.level);
     this.updateInventoryByLevel(this.level);
   }
 

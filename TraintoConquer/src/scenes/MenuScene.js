@@ -1,12 +1,13 @@
 import CoinDisplay from "../componets/CoinDisplay";
 import ExpBar from "../componets/ExpBar";
 import ExpFloatingText from "../componets/ExpFloatingText";
-import { fetchPlayerData, updatePlayerData, handlePlayerAction, getTelegramID } from "../apiService.js";
+import { fetchPlayerData, refreshAccessToken, handlePlayerAction, getTelegramID } from "../apiService.js";
 import { EnergyBar } from "../componets/EnergyBar.js";
 import preloadAssets from "../componets/Preload.js";
 import { createPlayerAnimations } from "./utils/animationUtils.js";
 import Button from "../componets/Button.js";
 import Background from "../componets/Background.js";
+import { preventaModal } from "../componets/preventaModal.js";
 
 
 export default class MenuScene extends Phaser.Scene {
@@ -41,42 +42,68 @@ export default class MenuScene extends Phaser.Scene {
       .setDepth(1)
       .play("walk");
 
+    this.modal = new preventaModal(this, this.cameras.main.centerX, this.cameras.main.centerY);
+
+    this.setShowModal(); // Mostrar el modal al inicio
   }
 
-
+  setShowModal() {
+    this.modal.show();
+    this.openUIManager = false
+  }
   async validateTokenAndLoadPlayerData() {
     try {
+      // 1. Obtener token de diferentes fuentes
       let token = this.getTokenFromUrl() || this.getTokenFromStorage();
+      const refreshToken = this.getRefreshToken();
 
       if (!token) {
-        token = await this.getTokenFromInitData();
-      }
-
-      if (!token) {
-        console.warn("⚠️ No se recibió un Token.");
+        console.warn("⚠️ No se encontró token");
         return this.redirectToErrorScene();
       }
 
-      let playerData = await this.fetchPlayerDataWithToken(token);
-
-      if (!playerData) {
-        console.warn("⛔ Token expirado o inválido. Intentando refrescar...");
-        token = await this.refreshAccessToken(this.getRefreshToken());
-
-        if (!token) return this.redirectToErrorScene();
-
+      // 2. Intentar obtener datos del jugador
+      let playerData;
+      try {
         playerData = await this.fetchPlayerDataWithToken(token);
-        if (!playerData) return this.redirectToErrorScene();
+      } catch (error) {
+        console.warn("Error al obtener datos:", error.message);
+
+        // Si el token expiró y tenemos refresh token
+        if (error.message.includes('TOKEN_EXPIRED') && refreshToken) {
+          console.log("🔄 Intentando renovar token...");
+          const newTokens = await refreshAccessToken(refreshToken);
+
+          if (newTokens?.accessToken) {
+            // Guardar nuevos tokens
+            this.setToken(newTokens.accessToken);
+            if (newTokens.refreshToken) {
+              this.setRefreshToken(newTokens.refreshToken);
+            }
+
+            // Reintentar con nuevo token
+            playerData = await this.fetchPlayerDataWithToken(newTokens.accessToken);
+          }
+        }
       }
 
-      this.loadPlayerData(playerData);
+      // 3. Si tenemos datos, cargarlos
+      if (playerData) {
+        return this.loadPlayerData(playerData);
+      }
+
+      // 4. Redirigir si todo falla
+      console.error("❌ No se pudo cargar datos del jugador");
+      this.redirectToErrorScene();
 
     } catch (error) {
-      console.error("❌ Error general:", error);
+      console.error("❌ Error en validateTokenAndLoadPlayerData:", error);
       this.redirectToErrorScene();
     }
   }
-
+  getRefreshToken() {
+    return localStorage.getItem('refreshToken'); // O lo que sea que estés usando para almacenar el refresh token
+  }
   getTokenFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get("token");
@@ -116,21 +143,6 @@ export default class MenuScene extends Phaser.Scene {
     return fetchPlayerData(token);
   }
 
-  refreshAccessToken(refreshToken) {
-    return fetch("/api/refresh-token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.token) {
-          this.setToken(data.token);
-          return data.token;
-        }
-        return null;
-      });
-  }
 
   redirectToErrorScene() {
     this.scene.start("ErrorScene");
@@ -142,7 +154,10 @@ export default class MenuScene extends Phaser.Scene {
     this.coins = playerData.coins;
     this.currentenergy = playerData.energy;
     console.log(playerData);
-    this.scene.launch("UIManager", { level: playerData.level });
+
+    if (this.openUIManager && !this.scene.isActive("UIManager")) {
+      this.scene.launch("UIManager", { level: playerData.level });
+    }
     this.coinDisplay = new CoinDisplay(this, 50, this.coins);
     this.expBar = new ExpBar(
       this,
@@ -201,17 +216,6 @@ export default class MenuScene extends Phaser.Scene {
       this.player.play("walk");
     });
   }
-
-
-
-
-
-
-
-
-
-
-
 
   playLevelUpEffect(newLevel) {
     // Crear el sistema de partículas

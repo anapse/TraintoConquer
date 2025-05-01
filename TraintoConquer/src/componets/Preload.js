@@ -8,6 +8,7 @@ export default function preloadAssets(scene) {
     scene.load.image("levelUpBadge", "assets/lvlup.png");
     scene.load.image('expicon', 'assets/exp_icon.png');
     scene.load.image('lightning', 'assets/rayito.png');
+    scene.load.image('fondopreventa', 'assets/backgrounds/fondopreventa.png');
     scene.load.spritesheet("slash", "assets/anis/slash_oversize.png", {
         frameWidth: 192,
         frameHeight: 192,
